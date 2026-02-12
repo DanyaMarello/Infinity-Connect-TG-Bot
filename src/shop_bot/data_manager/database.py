@@ -2015,7 +2015,15 @@ def initialize_default_button_configs():
             cursor.execute("SELECT COUNT(*) FROM button_configs")
             count = cursor.fetchone()[0]
             if count > 0:
-                logging.info("Button configs already exist, skipping initialization")
+                logging.info("Button configs already exist, ensuring critical admin buttons are present")
+                # Ensure 'Последние платежи' admin button exists for existing DBs
+                cursor.execute("SELECT 1 FROM button_configs WHERE menu_type = ? AND button_id = ?", ("admin_menu", "recent_payments"))
+                if not cursor.fetchone():
+                    cursor.execute("""
+                        INSERT INTO button_configs 
+                        (menu_type, button_id, text, callback_data, row_position, column_position, sort_order, is_active)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                    """, ("admin_menu", "recent_payments", "💳 Последние платежи", "admin_recent_transactions", 3, 0, 6))
                 return True
             
 

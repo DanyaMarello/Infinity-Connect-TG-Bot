@@ -1347,42 +1347,61 @@ def get_user_router() -> Router:
             if not name:
                 continue
             try:
-                last = rw_repo.get_latest_speedtest(name)
+                recent = rw_repo.get_speedtests(name, limit=2) or []
             except Exception:
-                last = None
-            if not last:
-                lines.append(f"• <b>{name}</b>: данных нет")
-                continue
-            ping = last.get('ping_ms')
-            down = last.get('download_mbps')
-            up = last.get('upload_mbps')
-            ok_badge = '✅' if last.get('ok') else '❌'
-            ping_s = f"{float(ping):.2f}" if isinstance(ping, (int, float)) else '—'
-            down_s = f"{float(down):.0f}" if isinstance(down, (int, float)) else '—'
-            up_s = f"{float(up):.0f}" if isinstance(up, (int, float)) else '—'
-            ts_raw = last.get('created_at') or ''
+                recent = []
+
+            # build details dict similar to admin view: prefer separate ssh/net entries
+            ssh_rec = None
+            net_rec = None
+            for r in recent:
+                if r.get('method') == 'ssh' and ssh_rec is None:
+                    ssh_rec = r
+                if r.get('method') == 'net' and net_rec is None:
+                    net_rec = r
+
+            def fmt_part_compact(d: dict | None) -> str:
+                if not d:
+                    return '—'
+                if not d.get('ok'):
+                    return '🔴 Offline'
+                ping = d.get('ping_ms')
+                jitter = d.get('jitter_ms')
+                down = d.get('download_mbps')
+                up = d.get('upload_mbps')
+                ping_s = f"{float(ping):.1f}" if ping is not None else '—'
+                down_s = f"{float(down):.0f}" if down is not None else '—'
+                up_s = f"{float(up):.0f}" if up is not None else '—'
+                s = f"Ping {ping_s} ms"
+                if jitter is not None:
+                    s += f" (jitter {float(jitter):.1f} ms)"
+                s += f" · ↓ {down_s} Mbps · ↑ {up_s} Mbps"
+                return s
+
+            ts_raw = (ssh_rec or net_rec or {}).get('created_at') or ''
             ts_s = ''
             if ts_raw:
                 try:
                     dt = datetime.fromisoformat(str(ts_raw).replace('Z', '+00:00'))
-
                     ts_s = dt.strftime('%d.%m %H:%M')
                 except Exception:
-                    ts_s = str(ts_raw)
+                    ts_s = str(ts_raw)[:16]
 
-            lines.append(
-                f"• <b>{name}</b> — SSH: {ok_badge} · ⏱ {ping_s} ms · ↓ {down_s} Mbps · ↑ {up_s} Mbps · 🕒 {ts_s}"
-            )
+            ssh_line = fmt_part_compact(ssh_rec)
+            net_line = fmt_part_compact(net_rec)
+
+            lines.append(f"• <b>{name}</b>\n  SSH: {ssh_line}\n  NET: {net_line} \n  🕒 {ts_s}")
+
         text = (
             "⚡ <b>Последние результаты Speedtest</b>\n"
-            + ("\n".join(lines) if lines else "(цели не настроены)")
+            + ("\n\n".join(lines) if lines else "(цели не настроены)")
         )
         kb = InlineKeyboardBuilder()
         kb.button(text="⬅️ В меню", callback_data="back_to_main_menu")
         try:
-            await callback.message.edit_text(text, reply_markup=kb.as_markup())
+            await callback.message.edit_text(text, reply_markup=kb.as_markup(), parse_mode='HTML')
         except Exception:
-            await callback.message.answer(text, reply_markup=kb.as_markup())
+            await callback.message.answer(text, reply_markup=kb.as_markup(), parse_mode='HTML')
 
     @user_router.callback_query(F.data == "show_help")
     @registration_required
