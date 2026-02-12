@@ -729,9 +729,7 @@
 
 						<div class="mb-3">
 							<label class="form-label" for="domain">Ваш домен (например, my-shop.com)</label>
-							<input class="form-control" type="text" id="domain" name="domain" value="{{ settings.domain or 'testbot.infinityconnect.ru' }}" />
-						</div>
-
+						<input class="form-control" type="text" id="domain" name="domain" value="{{ settings.domain or '' }}" />
 						<h3 class="h4">Настройка TonConnect</h3>
 						<div class="mb-3">
 							<label class="form-label" for="ton_wallet_address">Ton Wallet</label>

@@ -127,12 +127,12 @@ def main():
             loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop)))
         
         flask_thread = threading.Thread(
-            target=lambda: flask_app.run(host='0.0.0.0', port=8443, use_reloader=False, debug=False),
+            target=lambda: flask_app.run(host='0.0.0.0', port=1488, use_reloader=False, debug=False),
             daemon=True
         )
         flask_thread.start()
         
-        logger.info("Flask-сервер запущен: https://testbot.infinityconnect.ru")
+        logger.info("Flask-сервер запущен: http://localhost:1488")
             
         logger.info("Приложение запущено. Бота можно стартовать из веб-панели.")
         
