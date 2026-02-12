@@ -1388,9 +1388,7 @@ def get_user_router() -> Router:
                     ts_s = str(ts_raw)[:16]
 
             ssh_line = fmt_part_compact(ssh_rec)
-            net_line = fmt_part_compact(net_rec)
-
-            lines.append(f"• <b>{name}</b>\n  SSH: {ssh_line}\n  NET: {net_line} \n  🕒 {ts_s}")
+            lines.append(f"• <b>{name}</b>\n  SSH: {ssh_line}\n  🕒 {ts_s}")
 
         text = (
             "⚡ <b>Последние результаты Speedtest</b>\n"

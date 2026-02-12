@@ -248,54 +248,51 @@ def get_admin_router() -> Router:
         await callback.answer()
         
         try:
-            transactions = rw_repo.get_recent_transactions(limit=10)
+            transactions, total = rw_repo.get_paginated_transactions(page=1, per_page=10)
         except Exception as e:
             logger.error(f"Ошибка при получении транзакций: {e}")
             transactions = []
-        
+
         if not transactions:
             text = "📊 <b>Последние платежи</b>\n\n(Нет данных)"
             kb = InlineKeyboardBuilder()
             kb.button(text="⬅️ В админ-меню", callback_data="admin_menu")
             await callback.message.edit_text(text, reply_markup=kb.as_markup())
             return
-        
-        # Форматируем транзакции: ключ #N, хост, дата, пользователь
+
         lines = ["📊 <b>Последние 10 платежей</b>\n"]
         for tx in transactions:
             try:
-                key_id = tx.get('key_id', '—')
-                host_name = tx.get('host_name', '—')
-                created_at_raw = tx.get('created_at', '')
-                telegram_id = tx.get('telegram_id', '—')
-                username = tx.get('username', '')
-                
-                # Парсим дату и форматируем красиво
-                created_at_display = created_at_raw
+                tx_id = tx.get('transaction_id') or tx.get('payment_id') or '—'
+                host_name = tx.get('host_name') or '—'
+                created_at_raw = tx.get('created_date') or tx.get('created_at') or ''
+                user_id = tx.get('user_id') or tx.get('telegram_id') or '—'
+                username = (tx.get('username') or '')
+                amount = tx.get('amount_rub')
+
+                # Формат даты
+                created_at_display = str(created_at_raw)
                 if created_at_raw:
                     try:
                         dt = datetime.fromisoformat(str(created_at_raw).replace('Z', '+00:00'))
                         created_at_display = dt.strftime('%d.%m %H:%M')
                     except Exception:
                         created_at_display = str(created_at_raw)[:16]
-                
-                # Формируем строку с юзер-инфо
-                user_info = f"@{username}" if username else str(telegram_id)
-                
-                line = f"• Ключ #{key_id} / {host_name} / {created_at_display} / {user_info}"
+
+                user_info = f"@{username}" if username else str(user_id)
+                amt_s = f"{float(amount):.2f} RUB" if amount is not None else '—'
+                line = f"• #{tx_id} / {host_name} / {created_at_display} / {user_info} / {amt_s}"
                 lines.append(line)
             except Exception as e:
                 logger.warning(f"Ошибка форматирования транзакции {tx}: {e}")
                 continue
-        
+
         text = "\n".join(lines)
-        
         kb = InlineKeyboardBuilder()
         kb.button(text="🔄 Обновить", callback_data="admin_recent_transactions")
         kb.button(text="⬅️ В админ-меню", callback_data="admin_menu")
         kb.adjust(2)
-        
-        await callback.message.edit_text(text, reply_markup=kb.as_markup())
+        await callback.message.edit_text(text, reply_markup=kb.as_markup(), parse_mode='HTML')
 
 
     class AdminPromoCreate(StatesGroup):
@@ -949,12 +946,11 @@ def get_admin_router() -> Router:
 
         details = result.get('details') or {}
         timestamp_str = time_utils.now().strftime('%d.%m.%Y %H:%M:%S')
-        
+
         text_res = (
             f"🏁 <b>Тест скорости: {host_name}</b>\n"
             f"⏰ {timestamp_str}\n\n"
-            + fmt_part("SSH", details.get('ssh')) + "\n\n"
-            + fmt_part("NET", details.get('net'))
+            + fmt_part("SSH", details.get('ssh'))
         )
 
 
