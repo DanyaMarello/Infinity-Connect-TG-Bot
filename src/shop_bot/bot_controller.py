@@ -3,7 +3,6 @@ import logging
 
 from yookassa import Configuration
 from aiogram import Bot, Dispatcher, Router
-from aiogram.client.exceptions import TelegramConflictError
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode 
 
@@ -37,16 +36,7 @@ class BotController:
             await self._dp.start_polling(self._bot)
         except asyncio.CancelledError:
             logger.info("Опрос остановлен (задача отменена).")
-        except TelegramConflictError as e:
-            logger.error("TelegramConflictError: возможно параллельный запуск бота где-то ещё. Остановлю опрос. Сообщение: %s", e)
         except Exception as e:
-            # detect conflict messages inside generic exceptions as well
-            try:
-                if isinstance(e, Exception) and 'Conflict' in str(e):
-                    logger.error("Ошибка получения обновлений: конфликт getUpdates (возможно другой экземпляр бота). Остановлю опрос. %s", e)
-                    return
-            except Exception:
-                pass
             logger.error(f"Ошибка во время опроса: {e}", exc_info=True)
         finally:
             logger.info("Опрос корректно остановлен.")
