@@ -2781,9 +2781,20 @@ async def notify_admin_of_purchase(bot: Bot, metadata: dict):
         plan = get_plan_by_id(plan_id)
         plan_name = plan.get('plan_name', 'Unknown') if plan else 'Unknown'
 
+        # Формируем строку пользователя с username если доступен
+        user_display = str(user_id)
+        try:
+            user_info = get_user(user_id)
+            if user_info and user_info.get('username'):
+                username = user_info.get('username').strip()
+                if username:
+                    user_display = f"@{username} ({user_id})"
+        except Exception:
+            pass
+
         text = (
             "📥 Новая оплата\n"
-            f"👤 Пользователь: {user_id}\n"
+            f"👤 Пользователь: {user_display}\n"
             f"🗺️ Хост: {host_name}\n"
             f"📦 Тариф: {plan_name} ({months} мес.)\n"
             f"💳 Метод: {payment_method_display}\n"
@@ -3064,6 +3075,7 @@ async def process_successful_payment(bot: Bot, metadata: dict):
             candidate_email = existing_key['key_email']
 
         # Для продления: вычисляем новую дату окончания корректно
+        # TIMEZONE BUG FIX: Все операции с datetime должны быть в UTC!
         expiry_ts_param = None
         if action == "extend":
             try:
@@ -3075,34 +3087,51 @@ async def process_successful_payment(bot: Bot, metadata: dict):
             current_expiry_dt = None
             try:
                 if isinstance(cur_exp, (int, float)):
+                    # Миллисекунды в UTC datetime
                     current_expiry_dt = datetime.fromtimestamp(int(cur_exp) / 1000, tz=timezone.utc)
                 elif isinstance(cur_exp, str):
                     try:
-                        current_expiry_dt = datetime.fromisoformat(cur_exp)
+                        # Парсим как ISO строку, предполагая UTC
+                        current_expiry_dt = datetime.fromisoformat(cur_exp.replace('Z', '+00:00'))
                         if current_expiry_dt.tzinfo is None:
+                            # ВАЖНО: если нет timezone info, добавляем UTC (БД хранит UTC строки)
                             current_expiry_dt = current_expiry_dt.replace(tzinfo=timezone.utc)
                         else:
+                            # Конвертируем в UTC если нужно
                             current_expiry_dt = current_expiry_dt.astimezone(timezone.utc)
                     except Exception:
-                        # fallback: parse as numeric string
+                        # fallback: parse as numeric string (timestamp в секундах или миллисекундах)
                         try:
                             iv = int(cur_exp)
-                            current_expiry_dt = datetime.fromtimestamp(iv / 1000, tz=timezone.utc)
+                            # Попробуем как миллисекунды первым
+                            if iv > 10**11:  # Вероятно миллисекунды
+                                current_expiry_dt = datetime.fromtimestamp(iv / 1000, tz=timezone.utc)
+                            else:
+                                current_expiry_dt = datetime.fromtimestamp(iv, tz=timezone.utc)
                         except Exception:
                             current_expiry_dt = None
                 elif isinstance(cur_exp, datetime):
-                    current_expiry_dt = cur_exp if cur_exp.tzinfo else cur_exp.replace(tzinfo=timezone.utc)
+                    # Если уже datetime, убедимся, что он UTC-aware
+                    if cur_exp.tzinfo is None:
+                        current_expiry_dt = cur_exp.replace(tzinfo=timezone.utc)
+                    else:
+                        current_expiry_dt = cur_exp.astimezone(timezone.utc)
             except Exception:
                 current_expiry_dt = None
 
+            # Всё в UTC!
             now_dt = time_utils.now_utc()
             if current_expiry_dt is None:
+                # Если дата окончания не найдена, стартуем от сейчас
                 base_dt = now_dt
             else:
-                base_dt = current_expiry_dt if now_dt <= current_expiry_dt else now_dt
+                # ВАЖНО: если подписка ещё активна, продлеваем от её конца
+                # если подписка просрочена, продлеваем от сейчас
+                base_dt = current_expiry_dt if current_expiry_dt > now_dt else now_dt
 
             added_days = max(int(months * 30), 0)
             new_dt = base_dt + timedelta(days=added_days)
+            # Конвертируем UTC datetime в миллисекунды
             expiry_ts_param = int(new_dt.timestamp() * 1000)
 
         if expiry_ts_param is not None:

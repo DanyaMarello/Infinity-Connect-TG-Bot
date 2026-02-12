@@ -240,6 +240,63 @@ def get_admin_router() -> Router:
         await callback.answer()
         await show_admin_menu(callback.message, edit_message=True)
 
+    @admin_router.callback_query(F.data == "admin_recent_transactions")
+    async def admin_recent_transactions_handler(callback: types.CallbackQuery):
+        if not is_admin(callback.from_user.id):
+            await callback.answer("У вас нет прав.", show_alert=True)
+            return
+        await callback.answer()
+        
+        try:
+            transactions = rw_repo.get_recent_transactions(limit=10)
+        except Exception as e:
+            logger.error(f"Ошибка при получении транзакций: {e}")
+            transactions = []
+        
+        if not transactions:
+            text = "📊 <b>Последние платежи</b>\n\n(Нет данных)"
+            kb = InlineKeyboardBuilder()
+            kb.button(text="⬅️ В админ-меню", callback_data="admin_menu")
+            await callback.message.edit_text(text, reply_markup=kb.as_markup())
+            return
+        
+        # Форматируем транзакции: ключ #N, хост, дата, пользователь
+        lines = ["📊 <b>Последние 10 платежей</b>\n"]
+        for tx in transactions:
+            try:
+                key_id = tx.get('key_id', '—')
+                host_name = tx.get('host_name', '—')
+                created_at_raw = tx.get('created_at', '')
+                telegram_id = tx.get('telegram_id', '—')
+                username = tx.get('username', '')
+                
+                # Парсим дату и форматируем красиво
+                created_at_display = created_at_raw
+                if created_at_raw:
+                    try:
+                        dt = datetime.fromisoformat(str(created_at_raw).replace('Z', '+00:00'))
+                        created_at_display = dt.strftime('%d.%m %H:%M')
+                    except Exception:
+                        created_at_display = str(created_at_raw)[:16]
+                
+                # Формируем строку с юзер-инфо
+                user_info = f"@{username}" if username else str(telegram_id)
+                
+                line = f"• Ключ #{key_id} / {host_name} / {created_at_display} / {user_info}"
+                lines.append(line)
+            except Exception as e:
+                logger.warning(f"Ошибка форматирования транзакции {tx}: {e}")
+                continue
+        
+        text = "\n".join(lines)
+        
+        kb = InlineKeyboardBuilder()
+        kb.button(text="🔄 Обновить", callback_data="admin_recent_transactions")
+        kb.button(text="⬅️ В админ-меню", callback_data="admin_menu")
+        kb.adjust(2)
+        
+        await callback.message.edit_text(text, reply_markup=kb.as_markup())
+
 
     class AdminPromoCreate(StatesGroup):
         waiting_for_code = State()
@@ -856,23 +913,46 @@ def get_admin_router() -> Router:
 
 
         def fmt_part(title: str, d: dict | None) -> str:
+            """Форматирует результаты speedtest для читаемого вывода."""
             if not d:
                 return f"<b>{title}:</b> —"
             if not d.get("ok"):
-                return f"<b>{title}:</b> ❌ {d.get('error') or 'ошибка'}"
+                error_msg = d.get('error') or 'неизвестная ошибка'
+                return f"<b>{title}:</b> 🔴 Offline\n    Ошибка: {error_msg}"
+            
+            # Успешный результат
             ping = d.get('ping_ms')
+            jitter = d.get('jitter_ms')
             down = d.get('download_mbps')
             up = d.get('upload_mbps')
             srv = d.get('server_name') or '—'
-            return (f"<b>{title}:</b> ✅\n"
-                    f"• ping: {ping if ping is not None else '—'} ms\n"
-                    f"• ↓ {down if down is not None else '—'} Mbps\n"
-                    f"• ↑ {up if up is not None else '—'} Mbps\n"
-                    f"• сервер: {srv}")
+            srv_id = d.get('server_id')
+            
+            # Форматируем значения
+            ping_str = f"{float(ping):.1f}" if ping is not None else "—"
+            jitter_str = f"{float(jitter):.1f}" if jitter is not None else "—"
+            down_str = f"{float(down):.1f}" if down is not None else "—"
+            up_str = f"{float(up):.1f}" if up is not None else "—"
+            
+            result = f"<b>{title}:</b> ✅\n"
+            result += f"  Ping: <code>{ping_str}</code> ms"
+            if jitter_str != "—":
+                result += f" (jitter: {jitter_str} ms)"
+            result += "\n"
+            result += f"  Download: <code>{down_str}</code> Mbps\n"
+            result += f"  Upload:   <code>{up_str}</code> Mbps\n"
+            result += f"  Server: {srv}"
+            if srv_id:
+                result += f" (ID: {srv_id})"
+            
+            return result
 
         details = result.get('details') or {}
+        timestamp_str = time_utils.now().strftime('%d.%m.%Y %H:%M:%S')
+        
         text_res = (
-            f"🏁 Тест скорости завершён для <b>{host_name}</b>\n\n"
+            f"🏁 <b>Тест скорости: {host_name}</b>\n"
+            f"⏰ {timestamp_str}\n\n"
             + fmt_part("SSH", details.get('ssh')) + "\n\n"
             + fmt_part("NET", details.get('net'))
         )

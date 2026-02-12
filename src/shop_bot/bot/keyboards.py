@@ -67,6 +67,7 @@ def create_admin_menu_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="🌍 Ключи на хосте", callback_data="admin_host_keys")
     builder.button(text="🎟 Промокоды", callback_data="admin_promo_menu")
     builder.button(text="📊 Мониторинг", callback_data="admin_monitor")
+    builder.button(text="💳 Последние платежи", callback_data="admin_recent_transactions")
     builder.button(text="♻️ Восстановить БД", callback_data="admin_restore_db")
     builder.button(text="📢 Рассылка", callback_data="start_broadcast")
     builder.button(text=(get_setting("btn_back_to_menu_text") or "⬅️ Назад в меню"), callback_data="back_to_main_menu")
