@@ -750,6 +750,8 @@ def create_dynamic_keyboard(menu_type: str, user_keys: list = None, trial_availa
                 return create_admin_menu_keyboard()
             elif menu_type == "profile_menu":
                 return create_profile_keyboard()
+            elif menu_type == "tech_section_menu":
+                return create_tech_section_keyboard()
             elif menu_type == "support_menu":
                 return create_support_menu_keyboard()
             else:
@@ -842,6 +844,10 @@ def create_dynamic_admin_menu_keyboard() -> InlineKeyboardMarkup:
 def create_dynamic_profile_keyboard() -> InlineKeyboardMarkup:
     """Create profile keyboard using dynamic configuration"""
     return create_dynamic_keyboard("profile_menu")
+
+def create_dynamic_tech_section_keyboard() -> InlineKeyboardMarkup:
+    """Create tech section keyboard using dynamic configuration"""
+    return create_dynamic_keyboard("tech_section_menu")
 
 def create_dynamic_support_menu_keyboard() -> InlineKeyboardMarkup:
     """Create support menu keyboard using dynamic configuration"""

@@ -684,6 +684,14 @@ def get_user_router() -> Router:
             f"\n💰 <b>Заработано по рефералке (всего):</b> {total_ref_earned:.2f} RUB"
         )
         # REFACTOR: Использует переработанную profile_keyboard с доп. кнопками
+        
+        # Попытаемся создать динамическое меню профиля, с fallback на статическое
+        try:
+            profile_keyboard = keyboards.create_dynamic_profile_keyboard()
+        except Exception as e:
+            logger.warning(f"Failed to create dynamic profile keyboard, using static: {e}")
+            profile_keyboard = keyboards.create_profile_keyboard()
+        
         # Попытка отправить с изображением, если оно существует
         try:
             from pathlib import Path
@@ -693,16 +701,16 @@ def get_user_router() -> Router:
                     try:
                         await callback.message.edit_media(
                             media=types.InputMediaPhoto(media=img_file, caption=final_text),
-                            reply_markup=keyboards.create_profile_keyboard()
+                            reply_markup=profile_keyboard
                         )
                     except TelegramBadRequest:
-                        await callback.message.edit_text(final_text, reply_markup=keyboards.create_profile_keyboard())
+                        await callback.message.edit_text(final_text, reply_markup=profile_keyboard)
                 return
         except Exception as e:
             logger.debug(f"Не удалось использовать изображение профиля: {e}")
         
         # Fallback на текстовое меню
-        await callback.message.edit_text(final_text, reply_markup=keyboards.create_profile_keyboard())
+        await callback.message.edit_text(final_text, reply_markup=profile_keyboard)
 
     @user_router.callback_query(F.data == "show_tech_section")
     @registration_required
@@ -710,7 +718,14 @@ def get_user_router() -> Router:
         """Обработчик меню 'Тех.раздел' с поддержкой, информацией и утилитами"""
         await callback.answer()
         tech_section_text = get_setting("TECH_SECTION_TEXT", "⚙ <b>Тех.раздел</b>\n\nВыберите раздел:")
-        await callback.message.edit_text(tech_section_text, reply_markup=keyboards.create_tech_section_keyboard())
+        
+        try:
+            keyboard = keyboards.create_dynamic_tech_section_keyboard()
+        except Exception as e:
+            logger.warning(f"Failed to create dynamic tech section keyboard, using static: {e}")
+            keyboard = keyboards.create_tech_section_keyboard()
+        
+        await callback.message.edit_text(tech_section_text, reply_markup=keyboard)
 
     @user_router.callback_query(F.data == "top_up_start")
     @registration_required

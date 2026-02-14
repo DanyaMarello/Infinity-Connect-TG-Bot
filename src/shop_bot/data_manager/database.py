@@ -400,6 +400,10 @@ def initialize_db():
             conn.commit()
             
 
+            # Migrate old menu configs to new structure if needed
+            migrate_main_menu_configs()
+            
+
             initialize_default_button_configs()
             
 
@@ -2005,6 +2009,94 @@ def reorder_button_configs(menu_type: str, button_orders: list[dict]) -> bool:
         logging.error(f"Failed to reorder button configs for {menu_type}: {e}")
         return False
 
+def migrate_main_menu_configs():
+    """Migrate main menu configs from old structure (8 buttons) to new structure (5 buttons)
+    This is called on bot startup to ensure compatibility"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            
+            # Check if old configs exist
+            cursor.execute("""
+                SELECT COUNT(*) FROM button_configs 
+                WHERE menu_type = 'main_menu' AND button_id IN ('my_keys', 'buy_key', 'topup', 'support', 'about', 'speed', 'howto')
+            """)
+            old_count = cursor.fetchone()[0]
+            
+            if old_count > 0:
+                logging.info("Found old main menu configs, migrating to new structure...")
+                
+                # Delete all old main menu configs
+                cursor.execute("DELETE FROM button_configs WHERE menu_type = 'main_menu'")
+                logging.info("Deleted old main menu button configs")
+                
+                # Insert new configs
+                new_buttons = [
+                    ("trial", "🎁 Попробовать бесплатно", "get_trial", 0, 0, 0, 2),
+                    ("profile", "👤 Мой профиль", "show_profile", 1, 0, 1, 1),
+                    ("referral", "🤝 Реферальная программа", "show_referral_program", 1, 1, 2, 1),
+                    ("tech_section", "⚙ Тех.раздел", "show_tech_section", 2, 0, 3, 2),
+                    ("admin", "⚙️ Админка", "admin_menu", 3, 0, 4, 2),
+                ]
+                
+                for button_id, text, callback_data, row_pos, col_pos, sort_order, button_width in new_buttons:
+                    cursor.execute("""
+                        INSERT INTO button_configs 
+                        (menu_type, button_id, text, callback_data, row_position, column_position, sort_order, button_width, is_active)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    """, ("main_menu", button_id, text, callback_data, row_pos, col_pos, sort_order, button_width))
+                
+                logging.info("Inserted new main menu button configs")
+                
+                # Also update profile menu to have new buttons
+                cursor.execute("DELETE FROM button_configs WHERE menu_type = 'profile_menu'")
+                
+                profile_buttons = [
+                    ("my_keys", "🔑 Мои ключи", "manage_keys", 0, 0, 0),
+                    ("buy_key", "🛒 Купить ключ", "buy_new_key", 1, 0, 1),
+                    ("topup", "💳 Пополнить баланс", "top_up_start", 2, 0, 2),
+                    ("back_to_menu", "⬅️ Назад в меню", "back_to_main_menu", 3, 0, 3),
+                ]
+                
+                for button_id, text, callback_data, row_pos, col_pos, sort_order in profile_buttons:
+                    cursor.execute("""
+                        INSERT INTO button_configs 
+                        (menu_type, button_id, text, callback_data, row_position, column_position, sort_order, is_active)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                    """, ("profile_menu", button_id, text, callback_data, row_pos, col_pos, sort_order))
+                
+                logging.info("Updated profile menu button configs")
+                
+                # Add tech section menu
+                cursor.execute("DELETE FROM button_configs WHERE menu_type = 'tech_section_menu'")
+                
+                tech_buttons = [
+                    ("support", "🆘 Поддержка", "show_help", 0, 0, 0),
+                    ("about", "ℹ️ О проекте", "show_about", 0, 1, 1),
+                    ("speed", "⚡ Скорость", "user_speedtest_last", 1, 0, 2),
+                    ("howto", "❓ Как использовать", "howto_vless", 1, 1, 3),
+                    ("back_to_menu", "🏠 Главное меню", "back_to_main_menu", 2, 0, 4),
+                ]
+                
+                for button_id, text, callback_data, row_pos, col_pos, sort_order in tech_buttons:
+                    cursor.execute("""
+                        INSERT INTO button_configs 
+                        (menu_type, button_id, text, callback_data, row_position, column_position, sort_order, is_active)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                    """, ("tech_section_menu", button_id, text, callback_data, row_pos, col_pos, sort_order))
+                
+                logging.info("Created new tech section menu configs")
+                
+                conn.commit()
+                logging.info("Main menu migration completed successfully")
+                return True
+            
+            return True
+            
+    except sqlite3.Error as e:
+        logging.error(f"Failed to migrate main menu configs: {e}")
+        return False
+
 def initialize_default_button_configs():
     """Initialize default button configurations for all menu types"""
     try:
@@ -2027,18 +2119,14 @@ def initialize_default_button_configs():
                 return True
             
 
+            # REFACTORED: New menu structure - 5 buttons only
+            # Trial, Profile, Referral, Tech Section, Admin
             main_menu_buttons = [
                 ("trial", "🎁 Попробовать бесплатно", "get_trial", 0, 0, 0, 2),
                 ("profile", "👤 Мой профиль", "show_profile", 1, 0, 1, 1),
-                ("my_keys", "🔑 Мои ключи ({len(user_keys)})", "manage_keys", 1, 1, 2, 1),
-                ("buy_key", "🛒 Купить ключ", "buy_new_key", 2, 0, 3, 1),
-                ("topup", "💳 Пополнить баланс", "top_up_start", 2, 1, 4, 1),
-                ("referral", "🤝 Реферальная программа", "show_referral_program", 3, 0, 5, 2),
-                ("support", "🆘 Поддержка", "show_help", 4, 0, 6, 1),
-                ("about", "ℹ️ О проекте", "show_about", 4, 1, 7, 1),
-                ("speed", "⚡ Скорость", "user_speedtest_last", 5, 0, 8, 1),
-                ("howto", "❓ Как использовать", "howto_vless", 5, 1, 9, 1),
-                ("admin", "⚙️ Админка", "admin_menu", 6, 0, 10, 2),
+                ("referral", "🤝 Реферальная программа", "show_referral_program", 1, 1, 2, 1),
+                ("tech_section", "⚙ Тех.раздел", "show_tech_section", 2, 0, 3, 2),
+                ("admin", "⚙️ Админка", "admin_menu", 3, 0, 4, 2),
             ]
             
             for button_id, text, callback_data, row_pos, col_pos, sort_order, button_width in main_menu_buttons:
