@@ -72,6 +72,7 @@ from shop_bot.config import (
     CHOOSE_PAYMENT_METHOD_MESSAGE,
     get_purchase_success_text
 )
+from shop_bot import config
 from shop_bot.data_manager import remnawave_repository as rw_repo
 from shop_bot.modules import remnawave_api
 
@@ -390,9 +391,7 @@ async def show_main_menu(message: types.Message, edit_message: bool = False):
     trial_available = not (user_db_data and user_db_data.get('trial_used'))
     is_admin_flag = is_admin(user_id)
     
-
-
-
+    # REFACTOR: используем переработанное главное меню с поддержкой изображений
     text = get_setting("main_menu_text") or "🏠 <b>Главное меню</b>\n\nВыберите действие:"
 
     try:
@@ -401,6 +400,28 @@ async def show_main_menu(message: types.Message, edit_message: bool = False):
         logger.warning(f"Не удалось создать динамическую клавиатуру, используем статическую: {e}")
         keyboard = keyboards.create_main_menu_keyboard(user_keys, trial_available, is_admin_flag)
 
+    # Попытка отправить с изображением, если оно существует
+    try:
+        from pathlib import Path
+        img_path = Path(config.MAIN_MENU_IMAGE_PATH)
+        if img_path.exists() and img_path.is_file():
+            with open(img_path, 'rb') as img_file:
+                if edit_message:
+                    try:
+                        await message.edit_media(
+                            media=types.InputMediaPhoto(media=img_file, caption=text),
+                            reply_markup=keyboard
+                        )
+                    except TelegramBadRequest:
+                        # Если не смогли отредактировать с медиа, отправляем текст
+                        await message.edit_text(text, reply_markup=keyboard)
+                else:
+                    await message.answer_photo(photo=img_file, caption=text, reply_markup=keyboard)
+            return
+    except Exception as e:
+        logger.debug(f"Не удалось использовать изображение главного меню: {e}")
+    
+    # Fallback на текстовое меню
     if edit_message:
         try:
             await message.edit_text(text, reply_markup=keyboard)
@@ -662,7 +683,34 @@ def get_user_router() -> Router:
             f"\n🤝 <b>Рефералы:</b> {referral_count}"
             f"\n💰 <b>Заработано по рефералке (всего):</b> {total_ref_earned:.2f} RUB"
         )
+        # REFACTOR: Использует переработанную profile_keyboard с доп. кнопками
+        # Попытка отправить с изображением, если оно существует
+        try:
+            from pathlib import Path
+            img_path = Path(config.PROFILE_MENU_IMAGE_PATH)
+            if img_path.exists() and img_path.is_file():
+                with open(img_path, 'rb') as img_file:
+                    try:
+                        await callback.message.edit_media(
+                            media=types.InputMediaPhoto(media=img_file, caption=final_text),
+                            reply_markup=keyboards.create_profile_keyboard()
+                        )
+                    except TelegramBadRequest:
+                        await callback.message.edit_text(final_text, reply_markup=keyboards.create_profile_keyboard())
+                return
+        except Exception as e:
+            logger.debug(f"Не удалось использовать изображение профиля: {e}")
+        
+        # Fallback на текстовое меню
         await callback.message.edit_text(final_text, reply_markup=keyboards.create_profile_keyboard())
+
+    @user_router.callback_query(F.data == "show_tech_section")
+    @registration_required
+    async def show_tech_section_handler(callback: types.CallbackQuery):
+        """Обработчик меню 'Тех.раздел' с поддержкой, информацией и утилитами"""
+        await callback.answer()
+        tech_section_text = get_setting("TECH_SECTION_TEXT", "⚙ <b>Тех.раздел</b>\n\nВыберите раздел:")
+        await callback.message.edit_text(tech_section_text, reply_markup=keyboards.create_tech_section_keyboard())
 
     @user_router.callback_query(F.data == "top_up_start")
     @registration_required

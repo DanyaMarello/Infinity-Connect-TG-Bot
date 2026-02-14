@@ -17,6 +17,12 @@ main_reply_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
+# REFACTORED: Главное меню теперь содержит только:
+# - Попробовать бесплатно (если доступно)
+# - Мой профиль (содержит: Мои ключи, Купить ключ, Пополнить баланс)
+# - Реферальная программа
+# - Тех.раздел (содержит: О проекте, Скорость, Как использовать, Поддержка)
+# - Админка (если есть права)
 def create_main_menu_keyboard(user_keys: list, trial_available: bool, is_admin: bool) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     
@@ -24,23 +30,8 @@ def create_main_menu_keyboard(user_keys: list, trial_available: bool, is_admin: 
         builder.button(text=(get_setting("btn_trial_text") or "🎁 Попробовать бесплатно"), callback_data="get_trial")
     
     builder.button(text=(get_setting("btn_profile_text") or "👤 Мой профиль"), callback_data="show_profile")
-    base_my_keys = (get_setting("btn_my_keys_text") or "🔑 Мои ключи")
-    keys_count = len(user_keys) if user_keys else 0
-    builder.button(text=f"{base_my_keys} ({keys_count})", callback_data="manage_keys")
-    
-    builder.button(text=(get_setting("btn_buy_key_text") or "🛒 Купить ключ"), callback_data="buy_new_key")
-    builder.button(text=(get_setting("btn_topup_text") or "💳 Пополнить баланс"), callback_data="top_up_start")
-    
     builder.button(text=(get_setting("btn_referral_text") or "🤝 Реферальная программа"), callback_data="show_referral_program")
-    
-
-    builder.button(text=(get_setting("btn_support_text") or "🆘 Поддержка"), callback_data="show_help")
-    builder.button(text=(get_setting("btn_about_text") or "ℹ️ О проекте"), callback_data="show_about")
-    
-
-    builder.button(text=(get_setting("btn_speed_text") or "⚡ Скорость"), callback_data="user_speedtest_last")
-    builder.button(text=(get_setting("btn_howto_text") or "❓ Как использовать"), callback_data="howto_vless")
-    
+    builder.button(text="⚙ Тех.раздел", callback_data="show_tech_section")
 
     if is_admin:
         builder.button(text=(get_setting("btn_admin_text") or "⚙️ Админка"), callback_data="admin_menu")
@@ -49,7 +40,7 @@ def create_main_menu_keyboard(user_keys: list, trial_available: bool, is_admin: 
     layout = []
     if trial_available:
         layout.append(1)
-    layout.extend([2, 2, 1, 2, 2])
+    layout.extend([2, 1])
     if is_admin:
         layout.append(1)
     
@@ -553,11 +544,34 @@ def create_back_to_menu_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 def create_profile_keyboard() -> InlineKeyboardMarkup:
+    # REFACTORED: Профиль теперь содержит расширенное меню
     builder = InlineKeyboardBuilder()
+    
+    # Три кнопки из главного меню, перенесённые в профиль
+    base_my_keys = (get_setting("btn_my_keys_text") or "🔑 Мои ключи")
+    builder.button(text=base_my_keys, callback_data="manage_keys")
+    builder.button(text=(get_setting("btn_buy_key_text") or "🛒 Купить ключ"), callback_data="buy_new_key")
     builder.button(text=(get_setting("btn_topup_text") or "💳 Пополнить баланс"), callback_data="top_up_start")
-    builder.button(text=(get_setting("btn_referral_text") or "🤝 Реферальная программа"), callback_data="show_referral_program")
+    
+    # Возврат в главное меню
     builder.button(text=(get_setting("btn_back_to_menu_text") or "⬅️ Назад в меню"), callback_data="back_to_main_menu")
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def create_tech_section_keyboard() -> InlineKeyboardMarkup:
+    # НОВОЕ: Меню технического раздела с 4 кнопками
+    builder = InlineKeyboardBuilder()
+    
+    builder.button(text=(get_setting("btn_support_text") or "🆘 Поддержка"), callback_data="show_help")
+    builder.button(text=(get_setting("btn_about_text") or "ℹ️ О проекте"), callback_data="show_about")
+    builder.button(text=(get_setting("btn_speed_text") or "⚡ Скорость"), callback_data="user_speedtest_last")
+    builder.button(text=(get_setting("btn_howto_text") or "❓ Как использовать"), callback_data="howto_vless")
+    
+    # Возврат в главное меню
+    builder.button(text="🏠 Главное меню", callback_data="back_to_main_menu")
+    
+    builder.adjust(2, 2, 1)
     return builder.as_markup()
 
 def create_welcome_keyboard(channel_url: str | None, is_subscription_forced: bool = False) -> InlineKeyboardMarkup:
