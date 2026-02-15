@@ -548,7 +548,7 @@ def create_profile_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     
     # Три кнопки из главного меню, перенесённые в профиль
-    base_my_keys = (get_setting("btn_my_keys_text") or "🔑 Мои ключи")
+    base_my_keys = (get_setting("btn_my_keys_text") or "🔑 Мои ключи") + f" ({len(user_keys)})"
     builder.button(text=base_my_keys, callback_data="manage_keys")
     builder.button(text=(get_setting("btn_buy_key_text") or "🛒 Купить ключ"), callback_data="buy_new_key")
     builder.button(text=(get_setting("btn_topup_text") or "💳 Пополнить баланс"), callback_data="top_up_start")
@@ -569,7 +569,7 @@ def create_tech_section_keyboard() -> InlineKeyboardMarkup:
     builder.button(text=(get_setting("btn_howto_text") or "❓ Как использовать"), callback_data="howto_vless")
     
     # Возврат в главное меню
-    builder.button(text="🏠 Главное меню", callback_data="back_to_main_menu")
+    builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
     
     builder.adjust(2, 2, 1)
     return builder.as_markup()
