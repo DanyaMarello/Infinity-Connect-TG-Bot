@@ -1,12 +1,31 @@
+from pathlib import Path
+import os
+
 CHOOSE_PLAN_MESSAGE = "Выберите подходящий тариф:"
 CHOOSE_PAYMENT_METHOD_MESSAGE = "Выберите удобный способ оплаты:"
 VPN_INACTIVE_TEXT = "❌ <b>Статус VPN:</b> Неактивен (срок истек)"
 VPN_NO_DATA_TEXT = "ℹ️ <b>Статус VPN:</b> У вас пока нет активных ключей."
 
 # REFACTOR: Пути к изображениям меню (опционально, fallback на текст если файла нет)
-MAIN_MENU_IMAGE_PATH = "/app/project/assets/main_menu.jpg"
-PROFILE_MENU_IMAGE_PATH = "/app/project/assets/profile_menu.jpg"
-TECH_SECTION_IMAGE_PATH = "/app/project/assets/tech_section.jpg"
+# Поддержка как Docker контейнера, так и локальной разработки
+def _get_image_path(filename: str) -> str:
+    """Получает правильный путь к изображению для Docker и локальной разработки"""
+    # Для Docker контейнера
+    docker_path = f"/app/project/assets/{filename}"
+    if Path(docker_path).exists():
+        return docker_path
+    
+    # Для локальной разработки - ищем в корне проекта/assets
+    local_path = Path(__file__).parent.parent.parent / "assets" / filename
+    if local_path.exists():
+        return str(local_path)
+    
+    # Fallback - если ничего не найдено, возвращаем путь как есть
+    return docker_path
+
+MAIN_MENU_IMAGE_PATH = _get_image_path("main_menu.jpg")
+PROFILE_MENU_IMAGE_PATH = _get_image_path("profile_menu.jpg")
+TECH_SECTION_IMAGE_PATH = _get_image_path("tech_section.jpg")
 
 def get_profile_text(username, total_spent, total_months, vpn_status_text):
     return (
