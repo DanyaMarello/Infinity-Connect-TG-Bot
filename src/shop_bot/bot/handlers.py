@@ -23,7 +23,7 @@ from typing import Dict
 
 from pytonconnect import TonConnect
 from aiogram import Router, F, Bot, types, html
-from aiogram.types import BufferedInputFile, LabeledPrice, PreCheckoutQuery
+from aiogram.types import BufferedInputFile, LabeledPrice, PreCheckoutQuery, FSInputFile
 from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -403,28 +403,25 @@ async def show_main_menu(message: types.Message, edit_message: bool = False):
     # Попытка отправить с изображением, если оно существует
     try:
         from pathlib import Path
-        from io import BytesIO
         
         img_path = Path(config.MAIN_MENU_IMAGE_PATH)
         if img_path.exists() and img_path.is_file():
-            # Читаем файл в BytesIO для корректной отправки
-            with open(img_path, 'rb') as f:
-                img_data = BytesIO(f.read())
-                img_data.seek(0)
-                
-                if edit_message:
-                    try:
-                        await message.edit_media(
-                            media=types.InputMediaPhoto(media=img_data, caption=text),
-                            reply_markup=keyboard
-                        )
-                        logger.info("Main menu sent with image")
-                    except TelegramBadRequest as e:
-                        logger.warning(f"Could not edit media in main menu: {e}")
-                        await message.edit_text(text, reply_markup=keyboard)
-                else:
-                    await message.answer_photo(photo=img_data, caption=text, reply_markup=keyboard)
-                return
+            # Используем FSInputFile для aiogram 3.x
+            photo = FSInputFile(path=str(img_path))
+            
+            if edit_message:
+                try:
+                    await message.edit_media(
+                        media=types.InputMediaPhoto(media=photo, caption=text),
+                        reply_markup=keyboard
+                    )
+                    logger.info("Main menu sent with image")
+                except TelegramBadRequest as e:
+                    logger.warning(f"Could not edit media in main menu: {e}")
+                    await message.edit_text(text, reply_markup=keyboard)
+            else:
+                await message.answer_photo(photo=photo, caption=text, reply_markup=keyboard)
+            return
     except Exception as e:
         logger.warning(f"Не удалось использовать изображение главного меню: {e}")
     
@@ -702,24 +699,21 @@ def get_user_router() -> Router:
         # Попытка отправить с изображением, если оно существует
         try:
             from pathlib import Path
-            from io import BytesIO
             
             img_path = Path(config.PROFILE_MENU_IMAGE_PATH)
             if img_path.exists() and img_path.is_file():
-                # Читаем файл в BytesIO для корректной отправки
-                with open(img_path, 'rb') as f:
-                    img_data = BytesIO(f.read())
-                    img_data.seek(0)
-                    
-                    try:
-                        await callback.message.edit_media(
-                            media=types.InputMediaPhoto(media=img_data, caption=final_text),
-                            reply_markup=profile_keyboard
-                        )
-                        logger.info("Profile menu sent with image")
-                    except TelegramBadRequest as e:
-                        logger.warning(f"Could not edit media in profile: {e}")
-                        await callback.message.edit_text(final_text, reply_markup=profile_keyboard)
+                # Используем FSInputFile для aiogram 3.x
+                photo = FSInputFile(path=str(img_path))
+                
+                try:
+                    await callback.message.edit_media(
+                        media=types.InputMediaPhoto(media=photo, caption=final_text),
+                        reply_markup=profile_keyboard
+                    )
+                    logger.info("Profile menu sent with image")
+                except TelegramBadRequest as e:
+                    logger.warning(f"Could not edit media in profile: {e}")
+                    await callback.message.edit_text(final_text, reply_markup=profile_keyboard)
                 return
         except Exception as e:
             logger.warning(f"Не удалось использовать изображение профиля: {e}")
@@ -743,24 +737,21 @@ def get_user_router() -> Router:
         # Попытка отправить с изображением
         try:
             from pathlib import Path
-            from io import BytesIO
             
             img_path = Path(config.TECH_SECTION_IMAGE_PATH)
             if img_path.exists() and img_path.is_file():
-                # Читаем файл в BytesIO для корректной отправки
-                with open(img_path, 'rb') as f:
-                    img_data = BytesIO(f.read())
-                    img_data.seek(0)
-                    
-                    try:
-                        await callback.message.edit_media(
-                            media=types.InputMediaPhoto(media=img_data, caption=tech_section_text),
-                            reply_markup=keyboard
-                        )
-                        logger.info("Tech section menu sent with image")
-                    except TelegramBadRequest as e:
-                        logger.warning(f"Could not edit media in tech section: {e}")
-                        await callback.message.edit_text(tech_section_text, reply_markup=keyboard)
+                # Используем FSInputFile для aiogram 3.x
+                photo = FSInputFile(path=str(img_path))
+                
+                try:
+                    await callback.message.edit_media(
+                        media=types.InputMediaPhoto(media=photo, caption=tech_section_text),
+                        reply_markup=keyboard
+                    )
+                    logger.info("Tech section menu sent with image")
+                except TelegramBadRequest as e:
+                    logger.warning(f"Could not edit media in tech section: {e}")
+                    await callback.message.edit_text(tech_section_text, reply_markup=keyboard)
                 return
         except Exception as e:
             logger.warning(f"Не удалось использовать изображение тех.раздела: {e}")
