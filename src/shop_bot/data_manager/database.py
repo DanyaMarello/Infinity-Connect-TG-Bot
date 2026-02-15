@@ -2187,6 +2187,22 @@ def initialize_default_button_configs():
                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)
                 """, ("support_menu", button_id, text, callback_data, row_pos, col_pos, sort_order))
             
+
+            tech_section_buttons = [
+                ("support", "🆘 Поддержка", "show_help", 0, 0, 0),
+                ("about", "ℹ️ О проекте", "show_about", 0, 1, 1),
+                ("speed", "⚡ Скорость", "user_speedtest_last", 1, 0, 2),
+                ("howto", "❓ Как использовать", "howto_vless", 1, 1, 3),
+                ("back_to_menu", "🏠 Главное меню", "back_to_main_menu", 2, 0, 4),
+            ]
+            
+            for button_id, text, callback_data, row_pos, col_pos, sort_order in tech_section_buttons:
+                cursor.execute("""
+                    INSERT INTO button_configs 
+                    (menu_type, button_id, text, callback_data, row_position, column_position, sort_order, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                """, ("tech_section_menu", button_id, text, callback_data, row_pos, col_pos, sort_order))
+            
             conn.commit()
             logging.info("Default button configurations initialized")
             return True

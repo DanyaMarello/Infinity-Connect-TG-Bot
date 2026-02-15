@@ -6,6 +6,7 @@ VPN_NO_DATA_TEXT = "ℹ️ <b>Статус VPN:</b> У вас пока нет а
 # REFACTOR: Пути к изображениям меню (опционально, fallback на текст если файла нет)
 MAIN_MENU_IMAGE_PATH = "/app/project/assets/main_menu.jpg"
 PROFILE_MENU_IMAGE_PATH = "/app/project/assets/profile_menu.jpg"
+TECH_SECTION_IMAGE_PATH = "/app/project/assets/tech_section.jpg"
 
 def get_profile_text(username, total_spent, total_months, vpn_status_text):
     return (

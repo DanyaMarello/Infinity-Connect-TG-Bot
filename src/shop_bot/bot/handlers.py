@@ -717,7 +717,7 @@ def get_user_router() -> Router:
     async def show_tech_section_handler(callback: types.CallbackQuery):
         """Обработчик меню 'Тех.раздел' с поддержкой, информацией и утилитами"""
         await callback.answer()
-        tech_section_text = get_setting("TECH_SECTION_TEXT", "⚙ <b>Тех.раздел</b>\n\nВыберите раздел:")
+        tech_section_text = "⚙ <b>Тех.раздел</b>\n\nВы попали в тех.раздел, выберите действие:"
         
         try:
             keyboard = keyboards.create_dynamic_tech_section_keyboard()
@@ -725,6 +725,24 @@ def get_user_router() -> Router:
             logger.warning(f"Failed to create dynamic tech section keyboard, using static: {e}")
             keyboard = keyboards.create_tech_section_keyboard()
         
+        # Попытка отправить с изображением
+        try:
+            from pathlib import Path
+            img_path = Path(config.TECH_SECTION_IMAGE_PATH)
+            if img_path.exists() and img_path.is_file():
+                with open(img_path, 'rb') as img_file:
+                    try:
+                        await callback.message.edit_media(
+                            media=types.InputMediaPhoto(media=img_file, caption=tech_section_text),
+                            reply_markup=keyboard
+                        )
+                    except TelegramBadRequest:
+                        await callback.message.edit_text(tech_section_text, reply_markup=keyboard)
+                return
+        except Exception as e:
+            logger.debug(f"Не удалось использовать изображение тех.раздела: {e}")
+        
+        # Fallback на текстовое меню
         await callback.message.edit_text(tech_section_text, reply_markup=keyboard)
 
     @user_router.callback_query(F.data == "top_up_start")
