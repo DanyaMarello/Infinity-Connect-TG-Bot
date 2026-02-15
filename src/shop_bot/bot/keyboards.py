@@ -548,7 +548,7 @@ def create_profile_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     
     # Три кнопки из главного меню, перенесённые в профиль
-    base_my_keys = (get_setting("btn_my_keys_text") or "🔑 Мои ключи") + f" ({len(user_keys)})"
+    base_my_keys = (get_setting("btn_my_keys_text") or "🔑 Мои ключи")
     builder.button(text=base_my_keys, callback_data="manage_keys")
     builder.button(text=(get_setting("btn_buy_key_text") or "🛒 Купить ключ"), callback_data="buy_new_key")
     builder.button(text=(get_setting("btn_topup_text") or "💳 Пополнить баланс"), callback_data="top_up_start")
